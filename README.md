@@ -1,6 +1,6 @@
 # Valheim Dedicated Server Setup Guide
 
-Complete end-to-end setup for a Windows Valheim dedicated server reachable via public IP.
+Complete end-to-end setup for a Windows Valheim dedicated server reachable via public IP, using SteamCMD so the host does not need to be logged into the Steam client.
 
 ---
 
@@ -10,40 +10,33 @@ Complete end-to-end setup for a Windows Valheim dedicated server reachable via p
 - Steam account
 - PowerShell access; firewall section MUST be run as Administrator
 - Enough disk space for server files + world saves (~a few GB depending on world size)
+- SteamCMD for installing the dedicated server without the Steam client
 
 ---
 
-## Step 1 — Install Steam
+## Step 1 — Install SteamCMD
 
-1. Download Steam: https://store.steampowered.com/about/
-2. Run the installer, complete setup, and log into your Steam account.
-3. If prompted about Steam Guard, approve it.
+SteamCMD lets you install/update the Valheim Dedicated Server without logging into the Steam client.
 
----
+1. Create a folder: `C:\steamcmd`
+2. Download SteamCMD: https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip
+3. Extract `steamcmd.exe` into `C:\steamcmd`
+4. Open PowerShell and run:
+   ```powershell
+   cd C:\steamcmd
+   .\steamcmd.exe +login anonymous +force_install_dir "C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server" +app_update 896660 validate +quit
+   ```
+5. Wait for download/validation to complete.
 
-## Step 2 — Install Valheim
-
-1. In Steam → Store, search for `Valheim`.
-2. Click **Add to Cart** and purchase/install.
-3. After install, launch Valheim once so it completes first-time setup.
-4. Exit Valheim after the main menu appears.
-5. If prompted to create a character, you can skip; the dedicated server does not need a character.
-
----
-
-## Step 3 — Install Valheim Dedicated Server
-
-1. In Steam → Library, click the dropdown next to your account name at top-left.
-2. Select **Tools**.
-3. Find `Valheim Dedicated Server` in the list.
-4. Click **Install**.
-5. Default install location:
-   `C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server`
-6. Wait for install to finish; do not launch it yet.
+Notes:
+- This installs the dedicated server only. It does **not** install the Valheim client.
+- Anonymous login works for dedicated servers.
+- `896660` is the Valheim Dedicated Server app ID.
+- If you also want the Valheim client installed, do that through the regular Steam client separately on another machine.
 
 ---
 
-## Step 4 — Clone This Repo Into the Server Directory
+## Step 2 — Clone This Repo Into the Server Directory
 
 If you are setting up a different machine than the one that created this repo, copy the latest contents of this repo into:
 `C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\`
@@ -57,7 +50,7 @@ If you already extracted/copied the files manually, skip clone.
 
 ---
 
-## Step 5 — Configure the Server Launcher
+## Step 3 — Configure the Server Launcher
 
 Open `start_server.bat` in Notepad and edit the lines near the top if desired:
 
@@ -72,7 +65,7 @@ Save the file and leave it in place.
 
 ---
 
-## Step 6 — Open Firewall Ports
+## Step 4 — Open Firewall Ports
 
 This MUST be run from an **Administrator** PowerShell window.
 
@@ -94,7 +87,7 @@ What these rules do:
 
 ---
 
-## Step 7 — Make Sure Inbound Traffic Can Reach the Server
+## Step 5 — Make Sure Inbound Traffic Can Reach the Server
 
 You do **not** always need to change router settings. Valheim/Steam commonly uses Steam Datagram Relay (SDR), which can bridge connections even without open router ports.
 
@@ -105,7 +98,7 @@ Check this first:
 If direct connect fails, try the next steps in order.
 
 ### A. Apply Windows Firewall rules
-Run `setup_firewall.ps1` from **Administrator PowerShell** as described in Step 6. This only affects this PC; it does not change your router.
+Run `setup_firewall.ps1` from **Administrator PowerShell** as described in Step 4. This only affects this PC; it does not change your router.
 
 ### B. Verify router port behavior
 If your router supports UPnP, it may already allow the ports automatically. If not, and direct connect still fails, you can optionally add manual forwarding for:
@@ -114,27 +107,23 @@ If your router supports UPnP, it may already allow the ports automatically. If n
 - TCP `2458`
 
 Target your machine’s local IPv4 address if you do.
+
 ---
 
-## Step 8 — Run the Server
+## Step 6 — Run the Server
 
-1. **Log out of the Steam client completely.**
-   - The dedicated server must not share the same Steam session as a running Valheim client.
-   - If you want Steam open for other things, use a different Steam account for the client, or run the server and client on different machines.
-
+1. Do **not** run the regular Steam client under the same account at the same time. Because this setup uses SteamCMD, no Steam login is required.
 2. Double-click `start_server.bat`.
-
 3. A command window will open. Let it run. You should see lines such as:
    - `Steam game server initialized`
    - `PlayFab logged in as ...`
    - `Game server connected`
    - `Session "..." registered with join code ...`
-
 4. **Leave the window open.** Closing it stops the server.
 
 ---
 
-## Step 9 — Have Friends Join
+## Step 7 — Have Friends Join
 
 Friends join using your **public IP** and port `2456`.
 
@@ -147,7 +136,7 @@ How to join in Valheim:
 1. Click **Start Game** → **Join Game**.
 2. Click **IP**.
 3. Paste `<YOUR_PUBLIC_IP>:2456`.
-4. Enter the server password from Step 5.
+4. Enter the server password from Step 3.
 
 If the server does not appear in the public server browser, direct connect still works. Steam Datagram Relay may also help connect players when direct routing is restricted.
 
@@ -161,10 +150,8 @@ Valheim auto-detects your outward-facing public IP when registering with PlayFab
 ### Router settings / port forwarding
 Manual port forwarding is optional. Direct connect often works without router changes because Steam SDR/relay handles traversal. If joins fail, try `setup_firewall.ps1` first, then consider enabling UPnP or manual forwarding as a last resort.
 
-### Server quits after about a minute
-This happens when Steam is logged in with the same account as the server session. Fix:
-- Log out of Steam entirely, then restart the `.bat`.
-- Or run the server on a different machine from the Steam client.
+### No Steam client required
+SteamCMD installs and updates the server files. The dedicated server authenticates through its bundled Steam components. You do not need the Steam client running on the host machine.
 
 ### Ports
 Default ports used by Valheim Dedicated Server:
@@ -189,7 +176,7 @@ If you change Windows users after creating a world, copy `worlds_local` to the n
 ### Window closes immediately when I double-click start_server.bat
 - Open Command Prompt manually and run:
   ```
-  "C:\Program Files (x86)\teams\steamapps\common\Valheim dedicated server\start_server.bat"
+  "C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\start_server.bat"
   ```
 - Read the last few lines and share them if it errors.
 
@@ -228,4 +215,4 @@ That is normal with port forwarding issues or strict NATs. Direct connect still 
 git clone https://github.com/WickedHaze/valheim-server.git "C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server"
 ```
 
-Then follow Steps 5, 6, and 8 above.
+Then follow Steps 2 through 6 above.
