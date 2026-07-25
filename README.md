@@ -1,6 +1,6 @@
 # Valheim Dedicated Server Setup Guide
 
-Complete end-to-end setup for a Windows Valheim dedicated server with Tailscale.
+Complete end-to-end setup for a Windows Valheim dedicated server reachable via public IP.
 
 ---
 
@@ -8,8 +8,8 @@ Complete end-to-end setup for a Windows Valheim dedicated server with Tailscale.
 
 - Windows 10 or 11
 - Steam account
-- Tailscale account + client installed on all machines (server + friends)
 - PowerShell access; firewall section MUST be run as Administrator
+- Public IP or port-forwarded access from your router
 - Enough disk space for server files + world saves (~a few GB depending on world size)
 
 ---
@@ -91,19 +91,35 @@ If it outputs `Valheim firewall rules applied.`, the rules are live.
 What these rules do:
 - Allow incoming UDP `2456` and `2457`
 - Allow incoming TCP `2458`
-- Apply to all Windows Firewall profiles, including Tailscale
+- Apply to all Windows Firewall profiles
 
 ---
 
-## Step 7 — Ensure Tailscale Is Ready
+## Step 7 — Port Forward on Your Router
 
-1. Install Tailscale: https://tailscale.com/download
-2. Log into the same Tailscale network as your friends.
-3. Verify connectivity:
+Your server is only reachable from the internet if your router forwards the server ports to this machine.
+
+1. Find this machine’s local IPv4 address:
 ```powershell
-"C:\Program Files\Tailscale\tailscale.exe" ip
+ipconfig
 ```
-It should print a `100.x.x.x` address. That is the address friends will use.
+Look for the IPv4 Address under your active network adapter, e.g. `192.168.1.50`.
+
+2. Log into your router admin page (commonly `192.168.1.1` or `192.168.0.1`).
+
+3. Find **Port Forwarding / Virtual Server** and add:
+| Service | External Port | Internal Port | Protocol | Internal IP |
+|---------|---------------|---------------|----------|-------------|
+| Valheim Game | 2456 | 2456 | UDP | your PC local IP |
+| Valheim Query | 2457 | 2457 | UDP | your PC local IP |
+| Valheim Query | 2458 | 2458 | TCP | your PC local IP |
+
+4. Save and apply. Some routers require a reboot.
+
+5. Confirm your public IP, e.g.:
+```powershell
+Invoke-RestMethod -Uri 'https://api.ipify.org'
+```
 
 ---
 
@@ -127,31 +143,27 @@ It should print a `100.x.x.x` address. That is the address friends will use.
 
 ## Step 9 — Have Friends Join
 
-Your Tailscale IP from Step 7 is the join address.
+Friends join using your **public IP** and port `2456`.
 
 Example:
 ```
-100.111.140.2:2456
+<YOUR_PUBLIC_IP>:2456
 ```
 
 How to join in Valheim:
 1. Click **Start Game** → **Join Game**.
 2. Click **IP**.
-3. Paste `100.111.140.2:2456`.
+3. Paste `<YOUR_PUBLIC_IP>:2456`.
 4. Enter the server password from Step 5.
 
-If the server does not appear in the public server browser, that is expected if you use direct connect with the Tailscale IP.
+If the server does not appear in the public server browser, direct connect still works.
 
 ---
 
 ## Important Notes
 
 ### Public IP in logs / server browser
-Valheim auto-detects your outward-facing public IP when registering with PlayFab/Steam and may advertise that IP in logs and server listings.
-
-This does not necessarily mean your friends will route through the public internet:
-- Over Tailscale, traffic between two nodes is mesh-routed.
-- If direct connection via Tailscale IP works, the advertised public IP is only cosmetic.
+Valheim auto-detects your outward-facing public IP when registering with PlayFab/Steam and may advertise that IP in logs and server listings. That is normal behavior and is the address friends should use when joining from outside your network.
 
 ### Server quits after about a minute
 This happens when Steam is logged in with the same account as the server session. Fix:
@@ -181,15 +193,15 @@ If you change Windows users after creating a world, copy `worlds_local` to the n
 ### Window closes immediately when I double-click start_server.bat
 - Open Command Prompt manually and run:
   ```
-  "C:\Program Files (x86)\Steam\steamapps\common\Valheim dedicated server\start_server.bat"
+  "C:\Program Files (x86)\teams\steamapps\common\Valheim dedicated server\start_server.bat"
   ```
 - Read the last few lines and share them if it errors.
 
-### Friends cannot join via Tailscale IP
+### Friends cannot join
 - Confirm `setup_firewall.ps1` actually completed without errors in Administrator PowerShell.
-- Confirm Tailscale is connected on both machines.
-- Confirm you used `10100.x` or `100.x.x.x` (Tailscale IP), not the public IP.
-- Run this and look for `0.0.0.0:2457` on the server machine:
+- Confirm port forwarding is set on your router and points to the correct local IP.
+- Confirm your public IP is current; some ISPs change it periodically.
+- Run this on the server machine and look for local listening:
   ```powershell
   Get-NetUDPEndpoint | ? { $_.LocalPort -eq 2456 -or $_.LocalPort -eq 2457 } | ft LocalAddress,LocalPort
   ```
@@ -199,7 +211,7 @@ If you change Windows users after creating a world, copy `worlds_local` to the n
 - Make sure `WORLD=` in `start_server.bat` matches the `.db` filename stem.
 
 ### Server not visible in public browser
-That is normal when using only Tailscale direct connect. It does not affect joining.
+That is normal with port forwarding issues or strict NATs. Direct connect still works.
 
 ---
 
@@ -209,8 +221,7 @@ That is normal when using only Tailscale direct connect. It does not affect join
 |------|---------|
 | `start_server.bat` | Main launcher, edit settings at the top |
 | `setup_firewall.ps1` | Must run in Administrator PowerShell to open ports |
-| `README.md` | Short reference back to this guide |
-| `.gitignore` | Skips log and dump files |
+| `README.md` | This guide |
 
 ---
 
