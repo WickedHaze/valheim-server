@@ -9,7 +9,6 @@ Complete end-to-end setup for a Windows Valheim dedicated server reachable via p
 - Windows 10 or 11
 - Steam account
 - PowerShell access; firewall section MUST be run as Administrator
-- Public IP or port-forwarded access from your router
 - Enough disk space for server files + world saves (~a few GB depending on world size)
 
 ---
@@ -95,32 +94,26 @@ What these rules do:
 
 ---
 
-## Step 7 — Port Forward on Your Router
+## Step 7 — Make Sure Inbound Traffic Can Reach the Server
 
-Your server is only reachable from the internet if your router forwards the server ports to this machine.
+You do **not** always need to change router settings. Valheim/Steam commonly uses Steam Datagram Relay (SDR), which can bridge connections even without open router ports.
 
-1. Find this machine’s local IPv4 address:
-```powershell
-ipconfig
-```
-Look for the IPv4 Address under your active network adapter, e.g. `192.168.1.50`.
+Check this first:
+- Have a friend try joining via direct connect: `<YOUR_PUBLIC_IP>:2456`
+- If that works, nothing else is needed here.
 
-2. Log into your router admin page (commonly `192.168.1.1` or `192.168.0.1`).
+If direct connect fails, try the next steps in order.
 
-3. Find **Port Forwarding / Virtual Server** and add:
-| Service | External Port | Internal Port | Protocol | Internal IP |
-|---------|---------------|---------------|----------|-------------|
-| Valheim Game | 2456 | 2456 | UDP | your PC local IP |
-| Valheim Query | 2457 | 2457 | UDP | your PC local IP |
-| Valheim Query | 2458 | 2458 | TCP | your PC local IP |
+### A. Apply Windows Firewall rules
+Run `setup_firewall.ps1` from **Administrator PowerShell** as described in Step 6. This only affects this PC; it does not change your router.
 
-4. Save and apply. Some routers require a reboot.
+### B. Verify router port behavior
+If your router supports UPnP, it may already allow the ports automatically. If not, and direct connect still fails, you can optionally add manual forwarding for:
+- UDP `2456`
+- UDP `2457`
+- TCP `2458`
 
-5. Confirm your public IP, e.g.:
-```powershell
-Invoke-RestMethod -Uri 'https://api.ipify.org'
-```
-
+Target your machine’s local IPv4 address if you do.
 ---
 
 ## Step 8 — Run the Server
@@ -156,14 +149,17 @@ How to join in Valheim:
 3. Paste `<YOUR_PUBLIC_IP>:2456`.
 4. Enter the server password from Step 5.
 
-If the server does not appear in the public server browser, direct connect still works.
+If the server does not appear in the public server browser, direct connect still works. Steam Datagram Relay may also help connect players when direct routing is restricted.
 
 ---
 
 ## Important Notes
 
 ### Public IP in logs / server browser
-Valheim auto-detects your outward-facing public IP when registering with PlayFab/Steam and may advertise that IP in logs and server listings. That is normal behavior and is the address friends should use when joining from outside your network.
+Valheim auto-detects your outward-facing public IP when registering with PlayFab/Steam and may advertise that IP in logs and server listings. That is normal. Friends should join with that public IP:port, but Steam Datagram Relay can still bridge the connection even if routing is restricted.
+
+### Router settings / port forwarding
+Manual port forwarding is optional. Direct connect often works without router changes because Steam SDR/relay handles traversal. If joins fail, try `setup_firewall.ps1` first, then consider enabling UPnP or manual forwarding as a last resort.
 
 ### Server quits after about a minute
 This happens when Steam is logged in with the same account as the server session. Fix:
@@ -199,12 +195,13 @@ If you change Windows users after creating a world, copy `worlds_local` to the n
 
 ### Friends cannot join
 - Confirm `setup_firewall.ps1` actually completed without errors in Administrator PowerShell.
-- Confirm port forwarding is set on your router and points to the correct local IP.
-- Confirm your public IP is current; some ISPs change it periodically.
-- Run this on the server machine and look for local listening:
+- Confirm this machine has outbound internet; Steam relay needs it to help bridge connections.
+- Run this on the server machine to confirm local listening:
   ```powershell
   Get-NetUDPEndpoint | ? { $_.LocalPort -eq 2456 -or $_.LocalPort -eq 2457 } | ft LocalAddress,LocalPort
   ```
+- If the server only appears via direct public IP and not Tailscale, that is expected when Steam relay is handling traversal.
+- If all else fails, try the same network with all players on Tailscale and direct connect to `100.x.x.x:2456`.
 
 ### World not found
 - Check `C:\Users\<SERVER_USER>\AppData\LocalLow\IronGate\Valheim\worlds_local\`
